@@ -217,7 +217,7 @@ int main(void)
 								  CONV1_L_PADDING, CONV1_R_PADDING, CONV1_T_PADDING, CONV1_B_PADDING, CONV1_STRIDE, conv1_bias,
 								  tensorOut, CONV1_OUT_DIM, l1_tensor_scratch, NULL);
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM,layerId); layerId++;
+		USR_CHECKSUM(tensorOut,CONV1_OUT_DIM*CONV1_OUT_DIM*CONV1_OUT_CH,layerId); layerId++;
 
 		tensorIn  = tensorOut;
 		if (!tensorId)

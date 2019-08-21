@@ -1432,5 +1432,77 @@
 #define LAYER28_OUT_SHIFT (0)
 #endif
 
+#if CONF==17
+#include "intq-mobilenet-v1-models-pc/224_1_0_parameters.h"
+#include "intq-mobilenet-v1-models-pc/224_1_0_weights_bias.h"
+#define LAYER1() arm_convolve_HWC_u8_u4_u8_icn(image_data, CONV1_IM_DIM, CONV1_IM_CH, conv1_wt, CONV1_OUT_CH, CONV1_KER_DIM, CONV1_L_PADDING, CONV1_R_PADDING, CONV1_T_PADDING, CONV1_B_PADDING, CONV1_STRIDE, conv1_bias, tensorOut, CONV1_OUT_DIM, CONV1_IN_Z, CONV1_W_Z, CONV1_OUT_Z, CONV1_M_ZERO, CONV1_N_ZERO, l1_tensor_scratch, NULL);
+
+#define LAYER2() arm_depthwise_separable_conv_HWC_u4_u4_u8_icn(tensorIn, CONV2_IM_DIM, CONV2_IM_CH, conv2_wt, CONV2_OUT_CH, CONV2_KER_DIM, CONV2_L_PADDING, CONV2_R_PADDING, CONV2_T_PADDING, CONV2_B_PADDING, CONV2_STRIDE, conv2_bias, tensorOut, CONV2_OUT_DIM, CONV2_IN_Z, CONV2_W_Z, CONV2_OUT_Z, CONV2_M_ZERO, CONV2_N_ZERO, l1_tensor_scratch, NULL);
+
+#define LAYER3() arm_convolve_HWC_u4_u2_u8_icn(tensorIn, CONV3_IM_DIM, CONV3_IM_CH, conv3_wt, CONV3_OUT_CH, CONV3_KER_DIM, CONV3_L_PADDING, CONV3_R_PADDING, CONV3_T_PADDING, CONV3_B_PADDING, CONV3_STRIDE, conv3_bias, tensorOut, CONV3_OUT_DIM, CONV3_IN_Z, CONV3_W_Z, CONV3_OUT_Z, CONV3_M_ZERO, CONV3_N_ZERO, l1_tensor_scratch, NULL);
+
+#define LAYER4() arm_depthwise_separable_conv_HWC_u2_u8_u8(tensorIn, CONV4_IM_DIM, CONV4_IM_CH, conv4_wt, CONV4_OUT_CH, CONV4_KER_DIM, CONV4_L_PADDING, CONV4_R_PADDING, CONV4_T_PADDING, CONV4_B_PADDING, CONV4_STRIDE, conv4_bias, tensorOut, CONV4_OUT_DIM, CONV4_IN_Z, CONV4_W_Z, CONV4_OUT_Z, CONV4_M_ZERO, CONV4_N_ZERO, l1_tensor_scratch, NULL);
+
+#define LAYER5() arm_convolve_HWC_u8_u4_u8_icn(tensorIn, CONV5_IM_DIM, CONV5_IM_CH, conv5_wt, CONV5_OUT_CH, CONV5_KER_DIM, CONV5_L_PADDING, CONV5_R_PADDING, CONV5_T_PADDING, CONV5_B_PADDING, CONV5_STRIDE, conv5_bias, tensorOut, CONV5_OUT_DIM, CONV5_IN_Z, CONV5_W_Z, CONV5_OUT_Z, CONV5_M_ZERO, CONV5_N_ZERO, l1_tensor_scratch, NULL);
+#define LAYER1_WT_SHIFT (0)
+#define LAYER2_WT_SHIFT (0)
+#define LAYER3_WT_SHIFT (0)
+#define LAYER4_WT_SHIFT (0)
+#define LAYER5_WT_SHIFT (0)
+#define LAYER6_WT_SHIFT (0)
+#define LAYER7_WT_SHIFT (0)
+#define LAYER8_WT_SHIFT (0)
+#define LAYER9_WT_SHIFT (0)
+#define LAYER10_WT_SHIFT (0)
+#define LAYER11_WT_SHIFT (0)
+#define LAYER12_WT_SHIFT (0)
+#define LAYER13_WT_SHIFT (0)
+#define LAYER14_WT_SHIFT (0)
+#define LAYER15_WT_SHIFT (0)
+#define LAYER16_WT_SHIFT (0)
+#define LAYER17_WT_SHIFT (0)
+#define LAYER18_WT_SHIFT (0)
+#define LAYER19_WT_SHIFT (0)
+#define LAYER20_WT_SHIFT (0)
+#define LAYER21_WT_SHIFT (0)
+#define LAYER22_WT_SHIFT (0)
+#define LAYER23_WT_SHIFT (0)
+#define LAYER24_WT_SHIFT (0)
+#define LAYER25_WT_SHIFT (0)
+#define LAYER26_WT_SHIFT (0)
+#define LAYER27_WT_SHIFT (0)
+#define LAYER28_WT_SHIFT (0)
+
+#define LAYER1_OUT_SHIFT (1)
+#define LAYER2_OUT_SHIFT (1)
+#define LAYER3_OUT_SHIFT (2)
+#define LAYER4_OUT_SHIFT (0)
+#define LAYER5_OUT_SHIFT (1)
+#define LAYER6_OUT_SHIFT (0)
+#define LAYER7_OUT_SHIFT (0)
+#define LAYER8_OUT_SHIFT (0)
+#define LAYER9_OUT_SHIFT (0)
+#define LAYER10_OUT_SHIFT (0)
+#define LAYER11_OUT_SHIFT (0)
+#define LAYER12_OUT_SHIFT (0)
+#define LAYER13_OUT_SHIFT (0)
+#define LAYER14_OUT_SHIFT (0)
+#define LAYER15_OUT_SHIFT (0)
+#define LAYER16_OUT_SHIFT (0)
+#define LAYER17_OUT_SHIFT (0)
+#define LAYER18_OUT_SHIFT (0)
+#define LAYER19_OUT_SHIFT (0)
+#define LAYER20_OUT_SHIFT (0)
+#define LAYER21_OUT_SHIFT (0)
+#define LAYER22_OUT_SHIFT (0)
+#define LAYER23_OUT_SHIFT (0)
+#define LAYER24_OUT_SHIFT (0)
+#define LAYER25_OUT_SHIFT (0)
+#define LAYER26_OUT_SHIFT (0)
+#define LAYER27_OUT_SHIFT (0)
+#define LAYER28_OUT_SHIFT (0)
+#endif
+
+
 #endif /* MOBILE_NET_V1_MODELS_INTQ_MOBILE_NET_H_ */
 

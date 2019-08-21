@@ -6,12 +6,13 @@
 #include "arm_nnfunctions.h"
 
 
-#define CONF 16
+#define CONF 17
 #include "intq-mobilenet-v1-pc.h"
 
 //Layer 1	Conv / s2
 static const uint8_t conv1_wt[CONV1_KER_DIM * CONV1_KER_DIM * CONV1_IM_CH * CONV1_OUT_CH>>LAYER1_WT_SHIFT] = CONV1_WT;
 static const int32_t conv1_bias[CONV1_OUT_CH] = CONV1_BIAS;
+
 
 //Layer 2	Conv dw/ s1
 static const uint8_t conv2_wt[CONV2_KER_DIM * CONV2_KER_DIM * 1 * CONV2_OUT_CH>>LAYER2_WT_SHIFT] = CONV2_WT;
@@ -28,7 +29,7 @@ static const int32_t conv4_bias[ CONV4_OUT_CH] = CONV4_BIAS;
 //Layer 5	Conv Point/ s1
 static const uint8_t conv5_wt[CONV5_KER_DIM * CONV5_KER_DIM * CONV5_IM_CH * CONV5_OUT_CH>>LAYER5_WT_SHIFT] = CONV5_WT;
 static const int32_t conv5_bias[CONV5_OUT_CH] = CONV5_BIAS;
-
+/*
 //Layer 6	Conv dw/ s1
 static const uint8_t conv6_wt[CONV6_KER_DIM * CONV6_KER_DIM * 1 * CONV6_OUT_CH>>LAYER6_WT_SHIFT] = CONV6_WT;
 static const int32_t conv6_bias[CONV6_OUT_CH] = CONV6_BIAS;
@@ -120,14 +121,15 @@ static const int32_t conv27_bias[CONV27_OUT_CH] = CONV27_BIAS;
 //Layer 29 fully connected/ s1
 static const uint8_t fc28_wt[FC28_IM_CH*FC28_OUT_CH>>LAYER28_WT_SHIFT] = FC28_WT;
 static const int32_t fc28_bias[FC28_OUT_CH] = FC28_BIAS;
+*/
 
 // Input / Output
-#include "160_input_image.h"
-static const uint8_t image_data[CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM] = {1};
+#include "224_test_input_image.h"
+static const uint8_t image_data[CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM] = INPUT_IMAGE;
 //uint8_t output_data[IP1_OUT] = {0};
 
 // Tensors Scratch
-#define L2_TENSOR_IO_SIZE   (512000) //524288
+#define L2_TENSOR_IO_SIZE   (512000) //524288	//512000
 
 #define L1_TENSOR_SIZE      (60000) //65536
 uint8_t __attribute__((section (".L2RAM"))) l2_tensor_scratch[L2_TENSOR_IO_SIZE];
@@ -178,19 +180,50 @@ volatile unsigned int *SCB_DEMCR  = (volatile unsigned int *)0xE000EDFC;
 #define USR_GET_CC_TIMESTAMP(x)
 #endif
 
-#define MOBILENET_CHECKSUM 0
+#define MOBILENET_CHECKSUM 1
 #if MOBILENET_CHECKSUM
 volatile unsigned int checksums[30];
-#define USR_CHECKSUM(x,nb_elements,id) \
+#define USR_CHECKSUM(x, nb_elements, id, bits) \
   do { \
 	asm volatile("" ::: "memory"); \
 	checksums[id] = 0; \
-	for(int i=0; i< nb_elements;i++) \
-		checksums[id]+=x[i]; \
+	int idx, s; \
+	for (int i=0; i< nb_elements;i++) { \
+		if (bits == 8) \
+			checksums[id]+=x[i]; \
+	    else if (bits == 4) { \
+			idx = i / 2; \
+			s = i % 2; \
+			if (s == 0) \
+			{ \
+				checksums[id]+=(x[idx] & 0xF); \
+			} else \
+			{\
+				checksums[id]+=((x[idx] & 0xF0)>>4); \
+			}\
+		}  else if (bits == 2) \
+		{ \
+			idx = i/4; \
+			s = i % 4; \
+			if (s == 0) \
+			{ \
+				checksums[id]+=(x[idx] & 0x3); \
+			} else if (s == 1) \
+			{ \
+				checksums[id]+=((x[idx] & 0xC)>>2); \
+			} else if (s == 2) \
+			{ \
+				checksums[id]+=((x[idx] & 0x30)>>4); \
+			} else if (s == 3) \
+			{ \
+				checksums[id]+=((x[idx] & 0xC0)>>6); \
+			} \
+		} \
+	} \
 	asm volatile("" ::: "memory"); \
   } while (0)
 #else
-#define USR_CHECKSUM(x,nb_elements,id)
+#define USR_CHECKSUM(x,nb_elements,id, bits)
 #endif
 
 int main(void)
@@ -215,7 +248,7 @@ int main(void)
 		USR_CC_RESET();
 		LAYER1();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV1_OUT_DIM*CONV1_OUT_DIM*CONV1_OUT_CH,layerId); layerId++;
+		USR_CHECKSUM(tensorOut,CONV1_OUT_DIM*CONV1_OUT_DIM*CONV1_OUT_CH,layerId,4); layerId++;
 
 		tensorIn  = tensorOut;
 		if (!tensorId)
@@ -224,13 +257,14 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV2_OUT_DIM*CONV2_OUT_DIM*CONV2_OUT_CH>>LAYER2_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 2	Conv dw/ s1
+/*
+		Layer 2	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+*/
 		LAYER2();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV2_OUT_DIM*CONV2_OUT_DIM*CONV2_OUT_CH,layerId); layerId++;
+		USR_CHECKSUM(tensorOut,CONV2_OUT_DIM*CONV2_OUT_DIM*CONV2_OUT_CH,layerId,4); layerId++;
 
 		tensorIn  = tensorOut;
 		if (!tensorId)
@@ -238,14 +272,14 @@ int main(void)
 		else
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV3_OUT_DIM*CONV3_OUT_DIM*CONV3_OUT_CH>>LAYER3_OUT_SHIFT);
 		tensorId = !tensorId;
-
-		/*Layer 3	Conv Point/ s1
+/*
+		Layer 3	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+*/
 		LAYER3();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV3_OUT_DIM*CONV3_OUT_DIM*CONV3_OUT_CH,layerId); layerId++;
+		USR_CHECKSUM(tensorOut,CONV3_OUT_DIM*CONV3_OUT_DIM*CONV3_OUT_CH,layerId,2); layerId++;
 
 		tensorIn  = tensorOut;
 		if (!tensorId)
@@ -253,14 +287,14 @@ int main(void)
 		else
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV4_OUT_DIM*CONV4_OUT_DIM*CONV4_OUT_CH>>LAYER4_OUT_SHIFT);
 		tensorId = !tensorId;
-
-		/*Layer 4	Conv dw/ s2
+/*
+		Layer 4	Conv dw/ s2
 		*dephtwise
 		*Cycle =
-		*/
+*/
 		LAYER4();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV4_OUT_DIM*CONV4_OUT_DIM*CONV4_OUT_CH,layerId); layerId++;
+		USR_CHECKSUM(tensorOut,CONV4_OUT_DIM*CONV4_OUT_DIM*CONV4_OUT_CH,layerId,8); layerId++;
 
 		tensorIn  = tensorOut;
 		if (!tensorId)
@@ -268,15 +302,15 @@ int main(void)
 		else
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV5_OUT_DIM*CONV5_OUT_DIM*CONV5_OUT_CH>>LAYER5_OUT_SHIFT);
 		tensorId = !tensorId;
-
-		/*Layer 5	Conv Point/ s1
+/*
+		Layer 5	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+*/
 		LAYER5();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
-		USR_CHECKSUM(tensorOut,CONV5_OUT_DIM*CONV5_OUT_DIM*CONV5_OUT_CH,layerId); layerId++;
-
+		USR_CHECKSUM(tensorOut,CONV5_OUT_DIM*CONV5_OUT_DIM*CONV5_OUT_CH,layerId,4); layerId++;
+/*
 		tensorIn  = tensorOut;
 		if (!tensorId)
 			tensorOut = l2_tensor_scratch;
@@ -284,10 +318,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV6_OUT_DIM*CONV6_OUT_DIM*CONV6_OUT_CH>>LAYER6_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 6	Conv dw/ s1
+		Layer 6	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER6();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV6_OUT_DIM*CONV6_OUT_DIM*CONV6_OUT_CH,layerId); layerId++;
@@ -299,10 +333,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV7_OUT_DIM*CONV7_OUT_DIM*CONV7_OUT_CH>>LAYER7_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 7	Conv Point/ s1
+		Layer 7	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER7();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV7_OUT_DIM*CONV7_OUT_DIM*CONV7_OUT_CH,layerId); layerId++;
@@ -314,10 +348,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV8_OUT_DIM*CONV8_OUT_DIM*CONV8_OUT_CH>>LAYER8_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 8	Conv dw/ s2
+		Layer 8	Conv dw/ s2
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER8();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV8_OUT_DIM*CONV8_OUT_DIM*CONV8_OUT_CH,layerId); layerId++;
@@ -329,10 +363,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV9_OUT_DIM*CONV9_OUT_DIM*CONV9_OUT_CH>>LAYER9_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 9	Conv Point/ s1
+		Layer 9	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER9();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV9_OUT_DIM*CONV9_OUT_DIM*CONV9_OUT_CH,layerId); layerId++;
@@ -344,10 +378,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV10_OUT_DIM*CONV10_OUT_DIM*CONV10_OUT_CH>>LAYER10_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 10	Conv dw/ s1
+		Layer 10	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER10();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV10_OUT_DIM*CONV10_OUT_DIM*CONV10_OUT_CH,layerId); layerId++;
@@ -359,10 +393,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV11_OUT_DIM*CONV11_OUT_DIM*CONV11_OUT_CH>>LAYER11_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 11	Conv Point/ s1
+		Layer 11	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER11();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV11_OUT_DIM*CONV11_OUT_DIM*CONV11_OUT_CH,layerId); layerId++;
@@ -374,10 +408,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV12_OUT_DIM*CONV12_OUT_DIM*CONV12_OUT_CH>>LAYER12_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 12	Conv dw/ s2
+		Layer 12	Conv dw/ s2
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER12();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV12_OUT_DIM*CONV12_OUT_DIM*CONV12_OUT_CH,layerId); layerId++;
@@ -389,10 +423,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV13_OUT_DIM*CONV13_OUT_DIM*CONV13_OUT_CH>>LAYER13_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 13	Conv Point/ s1
+		Layer 13	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER13();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV13_OUT_DIM*CONV13_OUT_DIM*CONV13_OUT_CH,layerId); layerId++;
@@ -404,10 +438,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV14_OUT_DIM*CONV14_OUT_DIM*CONV14_OUT_CH>>LAYER14_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 14	Conv dw/ s1
+		Layer 14	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER14();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV14_OUT_DIM*CONV14_OUT_DIM*CONV14_OUT_CH,layerId); layerId++;
@@ -419,10 +453,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV15_OUT_DIM*CONV15_OUT_DIM*CONV15_OUT_CH>>LAYER15_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 15	Conv Point/ s1
+		Layer 15	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER15();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV15_OUT_DIM*CONV15_OUT_DIM*CONV15_OUT_CH,layerId); layerId++;
@@ -434,10 +468,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV16_OUT_DIM*CONV16_OUT_DIM*CONV16_OUT_CH>>LAYER16_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 16	Conv dw/ s1
+		Layer 16	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER16();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV16_OUT_DIM*CONV16_OUT_DIM*CONV16_OUT_CH,layerId); layerId++;
@@ -449,10 +483,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV17_OUT_DIM*CONV17_OUT_DIM*CONV17_OUT_CH>>LAYER17_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 17	Conv Point/ s1
+		Layer 17	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER17();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV17_OUT_DIM*CONV17_OUT_DIM*CONV17_OUT_CH,layerId); layerId++;
@@ -464,10 +498,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV18_OUT_DIM*CONV18_OUT_DIM*CONV18_OUT_CH>>LAYER18_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 18	Conv dw/ s1
+		Layer 18	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER18();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV18_OUT_DIM*CONV18_OUT_DIM*CONV18_OUT_CH,layerId); layerId++;
@@ -478,10 +512,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV19_OUT_DIM*CONV19_OUT_DIM*CONV19_OUT_CH>>LAYER19_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 19	Conv Point/ s1
+		Layer 19	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER19();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV19_OUT_DIM*CONV19_OUT_DIM*CONV19_OUT_CH,layerId); layerId++;
@@ -493,10 +527,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV20_OUT_DIM*CONV20_OUT_DIM*CONV20_OUT_CH>>LAYER20_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 20	Conv dw/ s1
+		Layer 20	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER20();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV20_OUT_DIM*CONV20_OUT_DIM*CONV20_OUT_CH,layerId); layerId++;
@@ -508,10 +542,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV21_OUT_DIM*CONV21_OUT_DIM*CONV21_OUT_CH>>LAYER21_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 21	Conv Point/ s1
+		Layer 21	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER21();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV21_OUT_DIM*CONV21_OUT_DIM*CONV21_OUT_CH,layerId); layerId++;
@@ -523,10 +557,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV22_OUT_DIM*CONV22_OUT_DIM*CONV22_OUT_CH>>LAYER22_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 22	Conv dw/ s1
+		Layer 22	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER22();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV22_OUT_DIM*CONV22_OUT_DIM*CONV22_OUT_CH,layerId); layerId++;
@@ -538,10 +572,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV23_OUT_DIM*CONV23_OUT_DIM*CONV23_OUT_CH>>LAYER23_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 23	Conv Point/ s1
+		Layer 23	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER23();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV23_OUT_DIM*CONV23_OUT_DIM*CONV23_OUT_CH,layerId); layerId++;
@@ -553,10 +587,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV24_OUT_DIM*CONV24_OUT_DIM*CONV24_OUT_CH>>LAYER24_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 24	Conv dw/ s2
+		Layer 24	Conv dw/ s2
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER24();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV24_OUT_DIM*CONV24_OUT_DIM*CONV24_OUT_CH,layerId); layerId++;
@@ -568,10 +602,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV25_OUT_DIM*CONV25_OUT_DIM*CONV25_OUT_CH>>LAYER25_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 25	Conv Point/ s1
+		Layer 25	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER25();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV25_OUT_DIM*CONV25_OUT_DIM*CONV25_OUT_CH,layerId); layerId++;
@@ -583,10 +617,10 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV26_OUT_DIM*CONV26_OUT_DIM*CONV26_OUT_CH>>LAYER26_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 26	Conv dw/ s1
+		Layer 26	Conv dw/ s1
 		*dephtwise
 		*Cycle =
-		*/
+
 		LAYER26();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV26_OUT_DIM*CONV26_OUT_DIM*CONV26_OUT_CH,layerId); layerId++;
@@ -598,13 +632,14 @@ int main(void)
 			tensorOut = l2_tensor_scratch + L2_TENSOR_IO_SIZE - (CONV27_OUT_DIM*CONV27_OUT_DIM*CONV27_OUT_CH>>LAYER27_OUT_SHIFT);
 		tensorId = !tensorId;
 
-		/*Layer 27	Conv Point/ s1
+		Layer 27	Conv Point/ s1
 		*pointwise
 		*Cycle =
-		*/
+
 		LAYER27();
 		USR_GET_CC_TIMESTAMP(cpu_cycles[layerId]);
 		USR_CHECKSUM(tensorOut,CONV27_OUT_DIM*CONV27_OUT_DIM*CONV27_OUT_CH,layerId); layerId++;
+*/
 
 //		tensorIn  = tensorOut;
 //		if (!tensorId)

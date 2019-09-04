@@ -42,9 +42,9 @@
  #define CONV3_OUT_CH    	(64)
  #define CONV3_OUT_DIM    	(112)
 
-/*
 
- Layer 4 Topology Parameters
+
+ //Layer 4 Topology Parameters
 #define CONV4_IM_DIM    	(64)
 #define CONV4_IM_CH     	(16)
 #define CONV4_KER_DIM   	(3)
@@ -57,7 +57,7 @@
 #define CONV4_OUT_DIM    	(32)
 
 
- Layer 5 Topology Parameters
+ // Layer 5 Topology Parameters
 #define CONV5_IM_DIM    	(32)
 #define CONV5_IM_CH     	(16)
 #define CONV5_KER_DIM   	(1)
@@ -70,7 +70,7 @@
 #define CONV5_OUT_DIM    	(32)
 
 
- Layer 6 Topology Parameters
+ // Layer 6 Topology Parameters
 #define CONV6_IM_DIM    	(32)
 #define CONV6_IM_CH     	(32)
 #define CONV6_KER_DIM   	(3)
@@ -82,7 +82,7 @@
 #define CONV6_OUT_CH    	(32)
 #define CONV6_OUT_DIM    	(32)
 
-
+/*
  Layer 7 Topology Parameters
 #define CONV7_IM_DIM    	(32)
 #define CONV7_IM_CH     	(32)

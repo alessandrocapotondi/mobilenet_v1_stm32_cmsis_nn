@@ -6,8 +6,8 @@
 #include "arm_nnfunctions.h"
 
 
-#define CONF 17
-#include "intq-mobilenet-v1.h"
+#define CONF 18
+#include "intq-mobilenet-v1-pc.h"
 
 //Layer 1	Conv / s2
 static const uint8_t conv1_wt[CONV1_KER_DIM * CONV1_KER_DIM * CONV1_IM_CH * CONV1_OUT_CH>>LAYER1_WT_SHIFT] = CONV1_WT;
